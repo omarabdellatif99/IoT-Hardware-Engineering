@@ -1,0 +1,40 @@
+button {
+  padding: 10px 20px;
+  margin: 5px;
+  font-size: 16px;
+  cursor: pointer;
+  border: none;
+  border-radius: 5px;
+  transition: background-color 0.3s ease;
+}
+
+h1 {
+  font-family: 'Poppins', sans-serif;
+  text-align: center;
+  color: black;
+  font-weight: 600;
+  font-size: 2.5rem;
+  margin-bottom: 20px;
+}
+
+/* Center buttons horizontally */
+.button-container {
+  display: flex;
+  justify-content: center;
+  gap: 10px; /* optional, space between buttons */
+}
+
+#Red:hover {
+  background-color: #ce4a4a !important;
+  color: white;
+}
+
+#Green:hover {
+  background-color: #4aca4a !important;
+  color: white;
+}
+
+#Blue:hover {
+  background-color: #4a7aca !important;
+  color: white;
+}

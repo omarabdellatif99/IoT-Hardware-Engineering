@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Production Line</title>
+  <!-- Add Google Fonts link here -->
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+</head>
+<body>
+  <h1>Annealing Lehr</h1>
+  <div class="button-container">
+    <button id="Red" onclick="send('red')">Red Light</button>
+    <button id="Green" onclick="send('green')">Green Light</button>
+    <button id="Blue" onclick="send('blue')">Blue Light</button>
+  </div>
+  <script>
+    const client = mqtt.connect('wss://broker.hivemq.com:8884/mqtt');
+
+    client.on('connect', () => {
+      console.log("Connected to MQTT broker");
+    });
+
+    function send(color) {
+      client.publish("myroom/message", color);
+      console.log("Message sent:", color);
+    }
+  </script>
+</body>
+</html>
