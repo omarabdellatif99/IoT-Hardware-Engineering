@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Annealing Lehr Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+</head>
+<body>
+  <div class="dashboard">
+    <h1>Annealing Lehr Control Panel</h1>
+
+    <div class="grid-container">
+      <!-- Burner 1 -->
+      <div class="card">
+        <h2>Burner 1</h2>
+        <div class="button-group">
+          <button class="btn-red" onclick="send('red1')">Red</button>
+          <button class="btn-green" onclick="send('orange1')">Green</button>
+          <button class="btn-blue" onclick="send('blue1')">Blue</button>
+        </div>
+      </div>
+
+      <!-- Burner 2 -->
+      <div class="card">
+        <h2>Burner 2</h2>
+        <div class="button-group">
+          <button class="btn-red" onclick="send('red2')">Red</button>
+          <button class="btn-green" onclick="send('orange2')">Green</button>
+          <button class="btn-blue" onclick="send('blue2')">Blue</button>
+        </div>
+      </div>
+
+      <!-- Burner 3 -->
+      <div class="card">
+        <h2>Burner 3</h2>
+        <div class="button-group">
+          <button class="btn-red" onclick="send('red3')">Red</button>
+          <button class="btn-green" onclick="send('orange3')">Green</button>
+          <button class="btn-blue" onclick="send('blue3')">Blue</button>
+        </div>
+      </div>
+
+      <!-- Machine Belt Speed -->
+      <div class="card">
+        <h2>Machine Belt Speed</h2>
+        <div class="input-group">
+          <input type="number" id="beltSpeed" placeholder="Enter speed..." />
+          <button class="btn-neutral" onclick="sendSpeed()">Set Speed</button>
+        </div>
+        <div class="speed-monitor">
+          <p>Current Speed: <span id="currentSpeed">--</span></p>
+        </div>
+      </div>
+
+      <!-- Admin Controls -->
+      <div class="card neutral">
+        <h2>Admin Controls</h2>
+        <div class="button-group">
+          <button class="btn-neutral" onclick="send('reset')">Reset</button>
+          <button class="btn-neutral" onclick="send('web')">Web</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const client = mqtt.connect('wss://broker.hivemq.com:8884/mqtt');
+
+    client.on('connect', () => {
+      console.log("Connected to MQTT broker");
+    });
+
+    function send(command) {
+      client.publish("myroom/message", command);
+      console.log("Message sent:", command);
+    }
+
+    function sendSpeed() {
+      const speedInput = document.getElementById('beltSpeed');
+      const speed = speedInput.value;
+      if (speed !== '') {
+        send(`speed:${speed}`);
+        document.getElementById('currentSpeed').textContent = speed;
+        speedInput.value = '';
+      }
+    }
+  </script>
+</body>
+</html>
