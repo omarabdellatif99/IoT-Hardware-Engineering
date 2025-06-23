@@ -1,40 +1,133 @@
-button {
-  padding: 10px 20px;
-  margin: 5px;
-  font-size: 16px;
-  cursor: pointer;
-  border: none;
-  border-radius: 5px;
-  transition: background-color 0.3s ease;
+body {
+  margin: 0;
+  font-family: 'Poppins', sans-serif;
+  background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  box-sizing: border-box;
+}
+
+.dashboard {
+  max-width: 1200px;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 20px;
+  backdrop-filter: blur(10px);
+  padding: 30px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
 }
 
 h1 {
-  font-family: 'Poppins', sans-serif;
   text-align: center;
-  color: black;
-  font-weight: 600;
-  font-size: 2.5rem;
-  margin-bottom: 20px;
+  color: white;
+  font-size: 3rem;
+  margin-bottom: 40px;
 }
 
-/* Center buttons horizontally */
-.button-container {
+.grid-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 30px;
+}
+
+.card {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 20px;
+  border-radius: 15px;
+  box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.1);
+  transition: transform 0.2s ease;
+}
+
+.card:hover {
+  transform: translateY(-5px);
+}
+
+.card h2 {
+  color: white;
+  font-size: 1.5rem;
+  margin-bottom: 15px;
+  border-left: 4px solid white;
+  padding-left: 10px;
+}
+
+.button-group {
   display: flex;
-  justify-content: center;
-  gap: 10px; /* optional, space between buttons */
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
-#Red:hover {
-  background-color: #ce4a4a !important;
+button {
+  flex: 1 1 30%;
+  padding: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
   color: white;
 }
 
-#Green:hover {
-  background-color: #4aca4a !important;
-  color: white;
+.btn-red {
+  background-color: #e74c3c;
+}
+.btn-red:hover {
+  background-color: #c0392b;
 }
 
-#Blue:hover {
-  background-color: #4a7aca !important;
+.btn-green {
+  background-color: #27ae60;
+}
+.btn-green:hover {
+  background-color: #1e8449;
+}
+
+.btn-blue {
+  background-color: #3498db;
+}
+.btn-blue:hover {
+  background-color: #2c80b4;
+}
+
+.btn-neutral {
+  background-color: #7f8c8d;
+}
+.btn-neutral:hover {
+  background-color: #626e70;
+}
+
+/* Input Group for Speed Control */
+.input-group {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.input-group input[type="number"] {
+  flex: 1 1 60%;
+  padding: 10px;
+  border-radius: 8px;
+  border: none;
+  font-size: 1rem;
+}
+
+/* Speed Monitor */
+.speed-monitor {
+  margin-top: 10px;
   color: white;
+  font-size: 1.1rem;
+  background-color: rgba(255, 255, 255, 0.1);
+  padding: 8px 12px;
+  border-radius: 10px;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  button, .input-group input {
+    flex: 1 1 100%;
+  }
 }
