@@ -1,0 +1,149 @@
+#include <WiFiNINA.h>
+#include <PubSubClient.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
+
+// ——— Wi-Fi & MQTT setup —————————————————————————————————————
+const char SSID[]       = "Vodafone-374899";
+const char PASS[]       = "3Kn66LnxGpCe9ed9";
+const char MQTT_BROKER[] = "broker.hivemq.com";
+const char MQTT_TOPIC[]  = "myroom/message";
+
+WiFiClient   wifiClient;
+PubSubClient mqtt(wifiClient);
+String       incomingCmd = "";
+
+// ——— DS18B20 + LEDs setup ——————————————————————————————————
+#define ONE_WIRE_PIN 2
+#define NUM_SENSORS 3
+const uint8_t BRIGHTNESS = 128;
+
+// OneWire & DallasTemperature
+OneWire           oneWire(ONE_WIRE_PIN);
+DallasTemperature sensors(&oneWire);
+
+// RGB pins for each LED
+const uint8_t ledPins[NUM_SENSORS][3] = {
+  {3,  5,  6},   // LED1
+  {7,  8,  9},   // LED2
+  {4, 10, 11}    // LED3
+};
+
+// operating mode: true = sensor mode, false = web-override mode
+bool sensorMode = true;
+unsigned long lastReadTime = 0;
+const unsigned long SENSOR_INTERVAL = 1500;
+
+// ——— Forward declarations ———————————————————————————————
+void mqttReconnect();
+void mqttCallback(char* topic, byte* payload, unsigned int length);
+void setLED(uint8_t idx, uint8_t r, uint8_t g, uint8_t b);
+
+void setup() {
+  Serial.begin(9600);
+  while (!Serial);
+
+  // LEDs off
+  for (uint8_t i = 0; i < NUM_SENSORS; i++)
+    for (uint8_t c = 0; c < 3; c++) {
+      pinMode(ledPins[i][c], OUTPUT);
+      analogWrite(ledPins[i][c], 0);
+    }
+
+  // start sensors
+  sensors.begin();
+
+  // connect Wi-Fi
+  Serial.print("Wi-Fi connecting… ");
+  WiFi.begin(SSID, PASS);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(200);
+    Serial.print(".");
+  }
+  Serial.println(" OK, IP="); Serial.println(WiFi.localIP());
+
+  // setup MQTT
+  mqtt.setServer(MQTT_BROKER, 1883);
+  mqtt.setCallback(mqttCallback);
+  mqttReconnect();
+}
+
+void loop() {
+  // maintain Wi-Fi
+  if (WiFi.status() != WL_CONNECTED) {
+    WiFi.begin(SSID, PASS);
+  }
+
+  // maintain MQTT
+  mqttReconnect();
+  mqtt.loop();
+
+  // if in sensor mode, do periodic reads
+  if (sensorMode && millis() - lastReadTime >= SENSOR_INTERVAL) {
+    lastReadTime = millis();
+    sensors.requestTemperatures();  // send conversion
+    // wait non-blocking 750ms
+    unsigned long start = millis();
+    while (millis() - start < 750) {
+      mqtt.loop();
+    }
+    for (uint8_t i = 0; i < NUM_SENSORS; i++) {
+      float t = sensors.getTempCByIndex(i);
+      Serial.print("Sensor "); Serial.print(i+1);
+      Serial.print(": "); Serial.print(t, 2); Serial.println(" °C");
+      if      (t > 30.0) setLED(i, 0,   0, 255);
+      else if (t < 20.0) setLED(i, 255, 0,   0);
+      else               setLED(i, 0, 255,   0);
+    }
+  }
+
+  // short delay to yield
+  delay(50);
+}
+
+void mqttReconnect() {
+  if (mqtt.connected()) return;
+  String cid = "arduino-";
+  cid += String(random(0xffff), HEX);
+  Serial.print("MQTT connecting as "); Serial.println(cid);
+  if (mqtt.connect(cid.c_str())) {
+    Serial.println("MQTT connected");
+    mqtt.subscribe(MQTT_TOPIC);
+  } else {
+    Serial.print("MQTT failed, rc="); Serial.println(mqtt.state());
+  }
+}
+
+void mqttCallback(char* topic, byte* payload, unsigned int length) {
+  String cmd;
+  for (unsigned int i = 0; i < length; i++) cmd += (char)payload[i];
+  cmd.trim();
+  Serial.print("← Cmd: "); Serial.println(cmd);
+
+  if (cmd == "reset") {
+    sensorMode = true;
+    Serial.println("→ Sensor mode ON");
+  }
+  else if (cmd == "web") {
+    sensorMode = false;
+    Serial.println("→ Web mode ON");
+  }
+  else if (!sensorMode && (cmd.startsWith("red") || cmd.startsWith("orange") || cmd.startsWith("blue"))) {
+    // one-shot override: redN, orangeN, blueN
+    uint8_t idx = cmd.charAt(cmd.length() - 1) - '1';
+    if (idx < NUM_SENSORS) {
+      uint8_t r = cmd.startsWith("red")    ? 255 : 0;
+      uint8_t g = cmd.startsWith("orange") ? 255 : 0;
+      uint8_t b = cmd.startsWith("blue")   ? 255 : 0;
+      setLED(idx, r, g, b);
+      Serial.print("Web override LED "); Serial.print(idx+1);
+      Serial.print(" → "); Serial.println(cmd);
+    }
+  }
+}
+
+void setLED(uint8_t idx, uint8_t r, uint8_t g, uint8_t b) {
+  analogWrite(ledPins[idx][0], (r * BRIGHTNESS) / 255);
+  analogWrite(ledPins[idx][1], (g * BRIGHTNESS) / 255);
+  analogWrite(ledPins[idx][2], (b * BRIGHTNESS) / 255);
+}
