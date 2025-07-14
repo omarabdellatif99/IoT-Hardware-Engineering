@@ -1,0 +1,88 @@
+#include <SPI.h>
+#include <WiFiNINA.h>
+#include <ArduinoMqttClient.h>
+
+char ssid[]     = "YOUR_SSID";
+char password[] = "YOUR_PASSWORD";
+
+const char* broker = "test.mosquitto.org";
+const int   port   = 1883;
+
+WiFiClient      wifi;
+MqttClient      mqtt(wifi);
+
+void setup() {
+  Serial.begin(9600);
+  while (!Serial);
+
+
+  Serial.print("Connecting to WiFi … ");
+  while (WiFi.begin(ssid, password) != WL_CONNECTED) { delay(500); }
+  Serial.println("connected");
+
+
+  mqtt.setId("UnoPub");
+  if (!mqtt.connect(broker, port)) {
+    Serial.println("MQTT connect failed → halt");
+    while (true);
+  }
+  Serial.println("MQTT connected");
+}
+
+void loop() {
+  // fake sensor value (replace with analogRead or real sensor later)
+  float temperature = 20.0 + sin(millis() / 10000.0) * 5.0;
+
+  mqtt.beginMessage("lab/sensor/temperature");
+  mqtt.print(temperature, 2);
+  mqtt.endMessage();
+
+  Serial.print("→ Sent: "); Serial.println(temperature);
+  delay(5000);
+}
+//part 2
+#include <SPI.h>
+#include <WiFiNINA.h>
+#include <ArduinoMqttClient.h>
+
+char ssid[]     = "YOUR_SSID";
+char password[] = "YOUR_PASSWORD";
+
+const char* broker = "test.mosquitto.org";
+const int   port   = 1883;
+
+WiFiClient      wifi;
+MqttClient      mqtt(wifi);
+
+void setup() {
+  pinMode(LED_BUILTIN, OUTPUT);
+  Serial.begin(9600);
+  while (!Serial);
+
+  // Wi-Fi
+  Serial.print("Connecting to WiFi … ");
+  while (WiFi.begin(ssid, password) != WL_CONNECTED) { delay(500); }
+  Serial.println("connected");
+
+  // MQTT
+  mqtt.setId("UnoSub");
+  if (!mqtt.connect(broker, port)) {
+    Serial.println("MQTT connect failed → halt");
+    while (true);
+  }
+  mqtt.subscribe("lab/actuator/led");
+  Serial.println("MQTT subscribed → ready");
+}
+
+void loop() {
+  int msgSize = mqtt.parseMessage();
+  if (msgSize) {
+    String cmd = mqtt.readString();
+    cmd.trim();
+
+    if (cmd.equalsIgnoreCase("ON"))  digitalWrite(LED_BUILTIN, HIGH);
+    if (cmd.equalsIgnoreCase("OFF")) digitalWrite(LED_BUILTIN, LOW);
+
+    Serial.print("← Received: "); Serial.println(cmd);
+  }
+}
