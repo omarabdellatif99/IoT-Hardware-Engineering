@@ -1,0 +1,59 @@
+sudo apt update
+sudo apt install -y mosquitto mosquitto-clients
+sudo systemctl enable mosquitto
+sudo systemctl start mosquitto
+
+mosquitto_pub -h localhost -t lab/sensor/temp -m 21.7 -q 1
+
+mosquitto_sub -h localhost -t lab/sensor/# -v
+
+
+//A
+#include <SPI.h>
+#include <WiFiNINA.h>
+#include <ArduinoMqttClient.h>
+
+char ssid[]="SSID";
+char password[]="PASS";
+const char* broker="broker.hivemq.com";
+WiFiClient net;
+MqttClient mqtt(net);
+
+void setup(){
+  Serial.begin(9600);
+  while(WiFi.begin(ssid,password)!=WL_CONNECTED);
+  mqtt.connect(broker,1883);
+}
+
+void loop(){
+  float v=analogRead(A0)*5.0/1023.0;
+  mqtt.beginMessage("lab/sensor/analog");
+  mqtt.print(v,2);
+  mqtt.endMessage();
+  delay(5000);
+}
+//B
+#include <SPI.h>
+#include <WiFiNINA.h>
+#include <ArduinoMqttClient.h>
+
+char ssid[]="SSID";
+char password[]="PASS";
+const char* broker="broker.hivemq.com";
+WiFiClient net;
+MqttClient mqtt(net);
+
+void setup(){
+  pinMode(LED_BUILTIN,OUTPUT);
+  while(WiFi.begin(ssid,password)!=WL_CONNECTED);
+  mqtt.connect(broker,1883);
+  mqtt.subscribe("lab/actuator/led");
+}
+
+void loop(){
+  if(mqtt.parseMessage()){
+    String cmd=mqtt.readString();
+    cmd.trim();
+    digitalWrite(LED_BUILTIN,cmd=="ON");
+  }
+}
