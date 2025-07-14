@@ -1,0 +1,59 @@
+#include <ArduinoBLE.h>
+
+const int PIN_RED    = 2;
+const int PIN_YELLOW = 3;
+const int PIN_GREEN  = 4;
+
+
+BLEService ledService("19B10000-E8F2-537E-4F6C-D104768A1214");
+
+BLEByteCharacteristic redChar   ("19B10001-E8F2-537E-4F6C-D104768A1214",
+                                 BLERead | BLEWrite);
+BLEByteCharacteristic yellowChar("19B10002-E8F2-537E-4F6C-D104768A1214",
+                                 BLERead | BLEWrite);
+BLEByteCharacteristic greenChar ("19B10003-E8F2-537E-4F6C-D104768A1214",
+                                 BLERead | BLEWrite);
+
+void setup() {
+  pinMode(PIN_RED,    OUTPUT);
+  pinMode(PIN_YELLOW, OUTPUT);
+  pinMode(PIN_GREEN,  OUTPUT);
+
+  Serial.begin(9600);
+  while (!Serial);                      // USB-Serial ready
+
+  if (!BLE.begin()) {
+    Serial.println("❌ BLE hardware not responding");
+    while (true);
+  }
+
+  BLE.setLocalName("Traffic-Light");
+  BLE.setAdvertisedService(ledService);
+
+  ledService.addCharacteristic(redChar);
+  ledService.addCharacteristic(yellowChar);
+  ledService.addCharacteristic(greenChar);
+  BLE.addService(ledService);
+
+
+  redChar.writeValue((byte)0);
+  yellowChar.writeValue((byte)0);
+  greenChar.writeValue((byte)0);
+
+  BLE.advertise();
+  Serial.println("BLE Traffic-Light service");
+}
+
+void loop() {
+  BLEDevice central = BLE.central();        // wait for a phone
+
+  if (central) {
+    Serial.print("✔ Connected to "); Serial.println(central.address());
+    while (central.connected()) {
+      if (redChar.written())    digitalWrite(PIN_RED,    redChar.value());
+      if (yellowChar.written()) digitalWrite(PIN_YELLOW, yellowChar.value());
+      if (greenChar.written())  digitalWrite(PIN_GREEN,  greenChar.value());
+    }
+    Serial.println("✖ Disconnected");
+  }
+}
