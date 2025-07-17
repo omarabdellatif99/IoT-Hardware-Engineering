@@ -1,0 +1,53 @@
+#include <ArduinoMqttClient.h>
+#include <WiFiNINA.h>
+#include "arduino_secrets.h"
+
+char WIFI_ID[] = SECRET_SSID;
+char WIFI_PW[] = SECRET_PASS;
+
+WiFiClient net;
+MqttClient mq(net);
+
+const char HOST[] = "test.mosquitto.org";
+constexpr int PORT = 1883;
+const char FEED[] = "LightIntensity";
+
+constexpr uint32_t PERIOD = 8000;
+uint32_t lastSend = 0;
+
+const uint8_t LDR_PINS[4] = {A0, A1, A2, A4};
+int readings[4];
+
+void setup() {
+  Serial.begin(9600);
+  while (!Serial) {}
+  Serial.print("Wi-Fi: "); Serial.println(WIFI_ID);
+  while (WiFi.begin(WIFI_ID, WIFI_PW) != WL_CONNECTED) { Serial.print('.'); delay(5000); }
+  Serial.println("\nWi-Fi connected");
+
+  Serial.print("MQTT: "); Serial.println(HOST);
+  if (!mq.connect(HOST, PORT)) { Serial.print("Err "); Serial.println(mq.connectError()); while (true); }
+  Serial.println("MQTT connected\n");
+}
+
+void loop() {
+  mq.poll();
+  uint32_t now = millis();
+  if (now - lastSend < PERIOD) return;
+  lastSend = now;
+
+  for (uint8_t i = 0; i < 4; ++i) readings[i] = analogRead(LDR_PINS[i]);
+
+  Serial.print("Publish "); Serial.println(FEED);
+  for (int v : readings) Serial.println(v);
+
+  mq.beginMessage(FEED);
+  mq.print('{');
+  for (uint8_t i = 0; i < 4; ++i) {
+    mq.print("\"LDR"); mq.print(i + 1); mq.print("\":"); mq.print(readings[i]);
+    if (i < 3) mq.print(',');
+  }
+  mq.print('}');
+  mq.endMessage();
+  Serial.println();
+}
