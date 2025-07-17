@@ -1,0 +1,95 @@
+#include <Servo.h>
+#include <WiFiNINA.h>
+#include <ArduinoJson.h>
+#include <PubSubClient.h>
+
+char WIFI_ID[] = "WIFINAME";
+char WIFI_PW[] = "*******";
+
+WiFiClient net;
+PubSubClient mqtt(net);
+const char* BROKER_IP   = "192.168.1.45";
+constexpr int BROKER_PT = 1883;
+
+Servo pan;
+Servo tilt;
+
+int angPan  = 90;
+int angTilt = 90;
+
+constexpr int STEP = 5;
+constexpr int THRESH = 20;
+
+const uint8_t LDR_PIN[4] = {A0, A1, A2, A3};
+enum { TOP, BOTTOM, LEFT, RIGHT };
+int ldr[4];
+
+void wifiConnect() {
+  while (WiFi.begin(WIFI_ID, WIFI_PW) != WL_CONNECTED) {
+    Serial.println("Wi-Fi…");
+    delay(1000);
+  }
+  Serial.println("Wi-Fi OK");
+}
+
+void mqttConnect() {
+  mqtt.setServer(BROKER_IP, BROKER_PT);
+  while (!mqtt.connected()) {
+    Serial.println("MQTT…");
+    if (mqtt.connect("Tracker")) Serial.println("MQTT OK");
+    else delay(1000);
+  }
+}
+
+void setup() {
+  Serial.begin(9600);
+  pan.attach(9);
+  tilt.attach(10);
+  pan.write(angPan);
+  tilt.write(angTilt);
+  wifiConnect();
+  mqttConnect();
+}
+
+void publishData() {
+  StaticJsonDocument<128> d;
+  d["top"] = ldr[TOP];
+  d["bottom"] = ldr[BOTTOM];
+  d["left"] = ldr[LEFT];
+  d["right"] = ldr[RIGHT];
+  char buf[128];
+  serializeJson(d, buf);
+  mqtt.publish("solartracker/ldr", buf);
+  Serial.printf("T:%d B:%d L:%d R:%d | X:%d Y:%d\n",
+                ldr[TOP], ldr[BOTTOM], ldr[LEFT], ldr[RIGHT],
+                angPan, angTilt);
+}
+
+void driveServos() {
+  int dx = abs(ldr[LEFT]  - ldr[RIGHT]);
+  int dy = abs(ldr[TOP]   - ldr[BOTTOM]);
+
+  if (dx > THRESH) {
+    angPan  += (ldr[LEFT] > ldr[RIGHT] ? -STEP : STEP);
+    angPan   = constrain(angPan, 0, 180);
+    pan.write(angPan);
+    Serial.printf("Pan %d\n", angPan);
+  }
+  if (dy > THRESH) {
+    angTilt += (ldr[TOP]  > ldr[BOTTOM] ? -STEP : STEP);
+    angTilt  = constrain(angTilt, 0, 180);
+    tilt.write(angTilt);
+    Serial.printf("Tilt %d\n", angTilt);
+  }
+}
+
+void loop() {
+  if (!mqtt.connected()) mqttConnect();
+  mqtt.loop();
+
+  for (uint8_t i = 0; i < 4; ++i) ldr[i] = analogRead(LDR_PIN[i]);
+
+  publishData();
+  driveServos();
+  delay(1000);
+}
