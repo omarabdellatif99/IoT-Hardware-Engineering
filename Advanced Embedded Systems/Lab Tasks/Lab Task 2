@@ -1,59 +1,75 @@
-#include <ArduinoBLE.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
+#include <SPI.h>
+#include <WiFiNINA.h>
+#include "arduino_secrets.h"
 
-const int PIN_RED    = 2;
-const int PIN_YELLOW = 3;
-const int PIN_GREEN  = 4;
+const char AP_SSID[] = SECRET_SSID;
+const char AP_PASS[] = SECRET_PASS;
 
+const uint8_t LED_PIN = LED_BUILTIN;
+int wifiState = WL_IDLE_STATUS;
 
-BLEService ledService("19B10000-E8F2-537E-4F6C-D104768A1214");
+WiFiServer web(80);
 
-BLEByteCharacteristic redChar   ("19B10001-E8F2-537E-4F6C-D104768A1214",
-                                 BLERead | BLEWrite);
-BLEByteCharacteristic yellowChar("19B10002-E8F2-537E-4F6C-D104768A1214",
-                                 BLERead | BLEWrite);
-BLEByteCharacteristic greenChar ("19B10003-E8F2-537E-4F6C-D104768A1214",
-                                 BLERead | BLEWrite);
+constexpr uint8_t TEMP_PIN = 4;
+OneWire dsWire(TEMP_PIN);
+DallasTemperature tempSensor(&dsWire);
+
+void showStatus() {
+  Serial.print("SSID: ");          Serial.println(WiFi.SSID());
+  IPAddress ip = WiFi.localIP();   Serial.print("IP Address: "); Serial.println(ip);
+  Serial.print("Open http://");    Serial.println(ip);
+}
 
 void setup() {
-  pinMode(PIN_RED,    OUTPUT);
-  pinMode(PIN_YELLOW, OUTPUT);
-  pinMode(PIN_GREEN,  OUTPUT);
+  Serial.begin(9600); while (!Serial) {}
+  tempSensor.begin();
+  pinMode(LED_PIN, OUTPUT);
 
-  Serial.begin(9600);
-  while (!Serial);                      // USB-Serial ready
+  if (WiFi.status() == WL_NO_MODULE) while (true);
 
-  if (!BLE.begin()) {
-    Serial.println("❌ BLE hardware not responding");
-    while (true);
-  }
+  wifiState = WiFi.beginAP(AP_SSID, AP_PASS);
+  if (wifiState != WL_AP_LISTENING) while (true);
 
-  BLE.setLocalName("Traffic-Light");
-  BLE.setAdvertisedService(ledService);
-
-  ledService.addCharacteristic(redChar);
-  ledService.addCharacteristic(yellowChar);
-  ledService.addCharacteristic(greenChar);
-  BLE.addService(ledService);
-
-
-  redChar.writeValue((byte)0);
-  yellowChar.writeValue((byte)0);
-  greenChar.writeValue((byte)0);
-
-  BLE.advertise();
-  Serial.println("BLE Traffic-Light service");
+  delay(10000);
+  web.begin();
+  showStatus();
 }
 
 void loop() {
-  BLEDevice central = BLE.central();        // wait for a phone
+  tempSensor.requestTemperatures();
+  Serial.print("Temperature: "); Serial.print(tempSensor.getTempCByIndex(0)); Serial.println(" °C");
+  delay(1000);
 
-  if (central) {
-    Serial.print("✔ Connected to "); Serial.println(central.address());
-    while (central.connected()) {
-      if (redChar.written())    digitalWrite(PIN_RED,    redChar.value());
-      if (yellowChar.written()) digitalWrite(PIN_YELLOW, yellowChar.value());
-      if (greenChar.written())  digitalWrite(PIN_GREEN,  greenChar.value());
+  int cur = WiFi.status();
+  if (cur != wifiState) {
+    wifiState = cur;
+    Serial.println(wifiState == WL_AP_CONNECTED ? "Device connected to AP" : "Device disconnected from AP");
+  }
+
+  WiFiClient client = web.available();
+  if (client) {
+    String line;
+    while (client.connected()) {
+      if (client.available()) {
+        char c = client.read();
+        if (c == '\n') {
+          if (line.length() == 0) {
+            client.println("HTTP/1.1 200 OK");
+            client.println("Content-type:text/html");
+            client.println();
+            client.print("Click <a href=\"/ON\">here</a> to switch LED on<br>");
+            client.print("Click <a href=\"/OFF\">here</a> to switch LED off<br>");
+            client.println();
+            break;
+          } else line = "";
+        } else if (c != '\r') line += c;
+
+        if (line.endsWith("GET /ON"))  digitalWrite(LED_PIN, HIGH);
+        if (line.endsWith("GET /OFF")) digitalWrite(LED_PIN, LOW);
+      }
     }
-    Serial.println("✖ Disconnected");
+    client.stop();
   }
 }
